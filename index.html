@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>社内AI 論点ボード</title>
+<title>AI導入へ向けての論点整理</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap">
@@ -110,18 +110,10 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
 <!-- ログイン画面 -->
 <div id="login" class="login" hidden>
   <form id="loginForm">
-    <h1>社内AI 論点ボード</h1>
-    <p class="hint">メンバー専用です。合言葉・名前・立場を入れて入ってください。このブラウザに記憶されるので、次回からは入力不要です。</p>
-    <div class="field"><label class="label" for="inPass">合言葉</label><input id="inPass" type="password" autocomplete="current-password" required></div>
-    <div class="field"><label class="label" for="inName">名前</label><input id="inName" type="text" maxlength="30" placeholder="例：山田" required></div>
-    <div class="field"><label class="label" for="inRole">立場</label>
-      <select id="inRole" required>
-        <option value="">選んでください</option>
-        <option value="sv">測量</option>
-        <option value="so">総務</option>
-        <option value="gi">技術</option>
-        <option value="en">設計技術者</option>
-      </select></div>
+    <h1>AI導入へ向けての論点整理</h1>
+    <p class="hint">メンバー専用です。名前を入れて入ってください。</p>
+    <div class="field"><label class="label" for="inName">名前</label><input id="inName" type="text" maxlength="30" placeholder="例：山田" autocomplete="username" required></div>
+    <div class="field" id="passField" hidden><label class="label" for="inPass">合言葉（このブラウザで初めて入るときだけ必要です）</label><input id="inPass" type="password" autocomplete="current-password"></div>
     <p id="loginErr" class="err" hidden></p>
     <button class="primary" type="submit" id="loginBtn">入る</button>
   </form>
@@ -131,7 +123,7 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
 <div id="app" class="wrap" hidden>
   <header>
     <div>
-      <h1>社内AI 論点ボード</h1>
+      <h1>AI導入へ向けての論点整理</h1>
     </div>
     <div class="whoami"><span id="whoami"></span><button class="link" type="button" id="logout">ログアウト</button></div>
   </header>
@@ -159,7 +151,7 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
   var API_URL="https://script.google.com/macros/s/AKfycbzmRrYgKlspsWtMBISt8oEHDkK_cdTjxlhbPsPKxsochsNd3w3sox5qeYtgYwjckOKfrg/exec";
   // ▲▲▲ ここまで ▲▲▲
 
-  var ROLE_NAME={sv:"測量",so:"総務",gi:"技術",en:"設計技術者"};
+  var ROLE_CLS={"測量":"sv","総務":"so","技術":"gi","設計技術者":"en"};
   var ST={open:{name:"議論中",cls:"st-open",b:"s-open"},done:{name:"合意",cls:"st-done",b:"s-done"}};
   var state={issues:[],posts:[],sel:null,editing:null,amend:{},decDraft:{}};
   var $=function(id){return document.getElementById(id)};
@@ -167,8 +159,7 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
   function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
   function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
   var KEY=lsGet("editKey");if(!KEY){KEY=Math.random().toString(36).slice(2)+Date.now().toString(36);lsSet("editKey",KEY)}
-  var ME={pass:lsGet("pass")||"",name:lsGet("myName")||"",role:lsGet("myRole")||""};
-  if(!ROLE_NAME[ME.role])ME.role="";
+  var ME={pass:lsGet("pass")||"",name:lsGet("myName")||"",role:""};
   var seen={};try{seen=JSON.parse(lsGet("seen")||"{}")||{}}catch(e){seen={}}
 
   function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="cls")e.className=attrs[k];else if(k.slice(0,2)==="on")e.addEventListener(k.slice(2),attrs[k]);else e.setAttribute(k,attrs[k]);}(kids||[]).forEach(function(c){if(c)e.appendChild(c)});return e}
@@ -179,24 +170,27 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
   /* ---------- 通信 ---------- */
   function call(fn){var args=Array.prototype.slice.call(arguments,1);
     if(API_URL.indexOf("https://script.google.com/")!==0)return Promise.reject(new Error("index.html の API_URL に、Apps Script のウェブアプリURLが設定されていません。"));
-    return fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:fn,args:args,key:KEY,pass:ME.pass})})
+    return fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:fn,args:args,key:KEY,pass:ME.pass,name:ME.name})})
       .then(function(r){if(!r.ok)throw new Error("サーバーに接続できませんでした（"+r.status+"）。");return r.json()})
-      .then(function(j){if(!j.ok){if(/合言葉が違います/.test(j.error)){logout("合言葉が違います。もう一度入力してください。");var e=new Error(j.error);e.silent=true;throw e}throw new Error(j.error)}return j.data})}
+      .then(function(j){if(!j.ok){if(/合言葉が違います/.test(j.error)){ME.pass="";lsDel("pass");}
+        if(/合言葉|登録されていない/.test(j.error)&&!$("app").hidden){showLogin(j.error);var e=new Error(j.error);e.silent=true;throw e}throw new Error(j.error)}return j.data})}
   function fail(e){if(e&&e.silent)return;notice((e&&e.message)?e.message:"保存できませんでした。少し待ってから、もう一度お試しください。")}
   function apply(data){state.issues=data.issues||[];state.posts=data.posts||[];render()}
 
   /* ---------- ログイン ---------- */
-  function showLogin(err){$("app").hidden=true;$("login").hidden=false;$("inPass").value="";$("inName").value=ME.name;$("inRole").value=ME.role;
-    $("loginErr").textContent=err||"";$("loginErr").hidden=!err;$("inPass").focus()}
-  function showApp(){$("login").hidden=true;$("app").hidden=false;$("whoami").textContent=ME.name+"（"+ROLE_NAME[ME.role]+"）でログイン中"}
-  function logout(err){ME.pass="";lsDel("pass");showLogin(err)}
-  $("logout").addEventListener("click",function(){logout()});
+  function showLogin(err){$("app").hidden=true;$("login").hidden=false;$("inName").value=ME.name;$("inPass").value="";
+    $("passField").hidden=!!ME.pass;$("loginErr").textContent=err||"";$("loginErr").hidden=!err;(ME.name&&!ME.pass?$("inPass"):$("inName")).focus()}
+  function showApp(){$("login").hidden=true;$("app").hidden=false;$("whoami").textContent=ME.name+"（"+(ME.role||"立場未登録")+"）でログイン中"}
+  $("logout").addEventListener("click",function(){ME.name="";lsDel("myName");showLogin()});
+  function login(){return call("login").then(function(dt){ME.name=dt.me.name;ME.role=dt.me.role;lsSet("myName",ME.name);lsSet("pass",ME.pass);showApp();apply(dt.board)})}
   $("loginForm").addEventListener("submit",function(ev){ev.preventDefault();
-    var p=$("inPass").value.trim(),n=$("inName").value.trim(),r=$("inRole").value;
-    if(!p||!n||!ROLE_NAME[r])return;
-    ME={pass:p,name:n,role:r};$("loginBtn").disabled=true;$("loginBtn").textContent="確認中…";
-    call("getData").then(function(dt){lsSet("pass",p);lsSet("myName",n);lsSet("myRole",r);$("loginBtn").disabled=false;$("loginBtn").textContent="入る";showApp();apply(dt)},
-      function(e){$("loginBtn").disabled=false;$("loginBtn").textContent="入る";if(!e.silent){$("loginErr").textContent=e.message;$("loginErr").hidden=false}})});
+    var n=$("inName").value.trim();if(!n)return;
+    if(!ME.pass){var p=$("inPass").value.trim();if(!p){$("passField").hidden=false;$("loginErr").textContent="このブラウザで初めて入るため、合言葉を入力してください。";$("loginErr").hidden=false;$("inPass").focus();return}ME.pass=p}
+    ME.name=n;$("loginBtn").disabled=true;$("loginBtn").textContent="確認中…";
+    login().then(function(){$("loginBtn").disabled=false;$("loginBtn").textContent="入る"},
+      function(e){$("loginBtn").disabled=false;$("loginBtn").textContent="入る";
+        if(/合言葉/.test(e.message)){ME.pass="";lsDel("pass")}
+        showLogin(e.message)})});
 
   /* ---------- 未読の判定（このブラウザで最後に見た時刻と比べる） ---------- */
   function lastActivity(i){var t=Math.max(i.createdAt||0,i.updatedAt||0);state.posts.forEach(function(p){if(p.issueId===i.id&&!p.pending)t=Math.max(t,p.createdAt||0,p.editedAt||0)});return t}
@@ -245,28 +239,10 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
     var sr=el("div",{cls:"status-row"},[el("span",{cls:"label",text:"状態"})]);
     ["open","done"].forEach(function(k){sr.appendChild(el("button",{type:"button",cls:ST[k].b,"aria-pressed":String(i.status===k),text:ST[k].name,onclick:function(){
       if(i.status===k)return;
-      if(k==="done"&&!(i.decision||"").trim()){notice("合意にする前に、決定事項を書いて「決定事項を保存」を押してください。");return}
+      if(k==="done"&&!(i.decision||"").trim()){notice("合意にする前に、ページ下の決定事項欄に書いて「決定事項を保存」を押してください。");return}
       var b=this;b.disabled=true;call("updateIssue",i.id,{status:k}).then(apply,function(e){b.disabled=false;fail(e)})}}))});
     head.appendChild(sr);d.appendChild(head);
 
-    // 決定事項（その場で書き込む）
-    var draft=state.decDraft[i.id];var cur=(draft!==undefined)?draft:(i.decision||"");
-    var ta=el("textarea",{id:"decText",maxlength:"2000",placeholder:"ここに決定事項を書く"});ta.value=cur;
-    var saveBtn=el("button",{cls:"primary",type:"button",text:"決定事項を保存"});
-    var saveHint=el("span",{cls:"hint"});
-    function syncDec(){var changed=ta.value.trim()!==(i.decision||"").trim();saveBtn.disabled=!changed;saveHint.textContent=changed?"未保存の変更があります":""}
-    ta.addEventListener("input",function(){state.decDraft[i.id]=ta.value;syncDec()});
-    saveBtn.addEventListener("click",function(){
-      var before=(i.decision||"").trim(),after=ta.value.trim();if(before===after)return;
-      saveBtn.disabled=true;saveBtn.textContent="保存中…";
-      call("updateIssue",i.id,{decision:after}).then(function(dt){
-        delete state.decDraft[i.id];
-        if(done&&before){state.amend[i.id]=true;notice("決定事項を修正しました。下の意見欄に、修正の意図を書き込んでください。")}
-        apply(dt)},function(e){saveBtn.textContent="決定事項を保存";syncDec();fail(e)})});
-    syncDec();
-    d.appendChild(el("section",{cls:"decision"},[
-      el("h3",{},[document.createTextNode("決定事項 "),el("span",{cls:"note",text:"（決定事項は修正できます。修正した際は下の意見欄に修正の意図を記入して下さい。）"})]),
-      ta,el("div",{cls:"dec-row"},[saveBtn,saveHint])]));
 
     // 意見（掲示板形式）
     var posts=state.posts.filter(function(p){return p.issueId===i.id}).sort(function(a,b){return(a.createdAt||0)-(b.createdAt||0)});
@@ -282,7 +258,7 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
       item.appendChild(el("div",{cls:"ph"},[
         el("span",{cls:"no",text:(idx+1)+"."}),
         el("span",{cls:"who",text:p.name||"（名前なし）"}),
-        el("span",{cls:"role role-"+(p.role||""),text:"（"+(ROLE_NAME[p.role]||p.roleName||"")+"）"}),
+        el("span",{cls:"role role-"+(ROLE_CLS[p.role]||""),text:"（"+(p.role||"")+"）"}),
         el("span",{cls:"time",text:p.pending?"送信中…":(fmt(p.createdAt)+(p.editedAt?"（編集済）":""))}),acts]));
       if(state.editing==="post:"+p.id){
         var et=el("textarea",{maxlength:"2000",style:"min-height:120px"});et.value=p.body||"";item.appendChild(et);
@@ -295,25 +271,44 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
     // 意見欄
     var amendMode=done&&state.amend[i.id];
     if(done&&!amendMode){
-      d.appendChild(el("div",{cls:"closed",text:"この論点は合意済みのため、意見欄は閉じています。決定事項を修正したときは、修正の意図を書き込めるようになります。再び議論する場合は、状態を「議論中」に戻してください。"}));
-      return;
-    }
+      d.appendChild(el("div",{cls:"closed",text:"この論点は合意済みのため、意見欄は閉じています。下の決定事項を修正したときは、ここに修正の意図を書き込めるようになります。再び議論する場合は、状態を「議論中」に戻してください。"}));
+    }else{
     var body=el("textarea",{id:"pBody",maxlength:"2000",placeholder:amendMode?"決定事項をどう修正したか、なぜ修正したかを書く":"意見・懸念・確認したいことを書く。理由も一言添えると議論が進みます。"});
     var draftKey="draft:"+i.id;var dv=lsGet(draftKey);if(dv)body.value=dv;
     body.addEventListener("input",function(){lsSet(draftKey,body.value)});
     var btn=el("button",{cls:"primary",type:"submit",text:"書き込む"});
     var form=el("form",{cls:"composer"},[
       el("label",{cls:"label",for:"pBody",text:amendMode?"意見欄（決定事項の修正の意図）":"意見欄"}),
-      el("p",{cls:"hint",text:"投稿者："+ME.name+"（"+ROLE_NAME[ME.role]+"）"}),
+      el("p",{cls:"hint",text:"投稿者："+ME.name+"（"+(ME.role||"")+"）"}),
       body,el("div",{cls:"row"},[el("span",{cls:"hint",text:"書き込んだ意見は、議論中の間は自分で編集・削除できます。"}),btn])]);
     form.addEventListener("submit",function(ev){ev.preventDefault();var v=body.value.trim();if(!v)return;
       btn.disabled=true;
       // 送信中の意見をすぐ表示する（サーバーの応答には数秒かかるため）
       var tmp={id:"tmp"+Date.now(),issueId:i.id,role:ME.role,name:ME.name,body:(amendMode?"【決定事項の修正】":"")+v,createdAt:Date.now(),mine:true,pending:true};
       state.posts.push(tmp);body.value="";lsSet(draftKey,"");render(true);
-      call("addPost",i.id,ME.role,ME.name,v,amendMode?true:false).then(function(dt){if(amendMode)delete state.amend[i.id];apply(dt)},
+      call("addPost",i.id,v,amendMode?true:false).then(function(dt){if(amendMode)delete state.amend[i.id];apply(dt)},
         function(e){state.posts=state.posts.filter(function(p){return p!==tmp});lsSet(draftKey,v);render(true);fail(e)})});
     d.appendChild(form);
+    }
+
+    // 決定事項（意見の下。まとめ役が意見欄でまとめてから書き込む）
+    var draft=state.decDraft[i.id];var cur=(draft!==undefined)?draft:(i.decision||"");
+    var ta=el("textarea",{id:"decText",maxlength:"2000",placeholder:"ここに決定事項を書く"});ta.value=cur;
+    var saveBtn=el("button",{cls:"primary",type:"button",text:"決定事項を保存"});
+    var saveHint=el("span",{cls:"hint"});
+    function syncDec(){var changed=ta.value.trim()!==(i.decision||"").trim();saveBtn.disabled=!changed;saveHint.textContent=changed?"未保存の変更があります":""}
+    ta.addEventListener("input",function(){state.decDraft[i.id]=ta.value;syncDec()});
+    saveBtn.addEventListener("click",function(){
+      var before=(i.decision||"").trim(),after=ta.value.trim();if(before===after)return;
+      saveBtn.disabled=true;saveBtn.textContent="保存中…";
+      call("updateIssue",i.id,{decision:after}).then(function(dt){
+        delete state.decDraft[i.id];
+        if(done&&before){state.amend[i.id]=true;notice("決定事項を修正しました。上の意見欄に、修正の意図を書き込んでください。")}
+        apply(dt)},function(e){saveBtn.textContent="決定事項を保存";syncDec();fail(e)})});
+    syncDec();
+    d.appendChild(el("section",{cls:"decision"},[
+      el("h3",{},[document.createTextNode("決定事項 "),el("span",{cls:"note",text:"（決定事項は修正できます。修正した際は上の意見欄に修正の意図を記入して下さい。）"})]),
+      ta,el("div",{cls:"dec-row"},[saveBtn,saveHint])]));
   }
 
   function busy(){var a=document.activeElement;return state.editing||(a&&/TEXTAREA|INPUT|SELECT/.test(a.tagName)&&a.value)}
@@ -331,7 +326,7 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
     call("addIssue",t,$("niGoal").value).then(function(dt){$("niBtn").disabled=false;$("niTitle").value="";$("niGoal").value="";var list=dt.issues||[];var last=list.reduce(function(a,b){return(b.createdAt||0)>(a.createdAt||0)?b:a},list[0]);if(last){state.sel=last.id;lsSet("selIssue",last.id)}apply(dt)},function(e){$("niBtn").disabled=false;fail(e)})});
 
   state.sel=lsGet("selIssue");
-  if(ME.pass&&ME.name&&ME.role){showApp();load(true)}else showLogin();
+  if(ME.pass&&ME.name){login().catch(function(e){showLogin(e.message)})}else showLogin();
   // 30秒ごとに他のメンバーの書き込みを取り込む（入力中は画面を保つ）
   setInterval(function(){if(document.visibilityState==="visible"&&ME.pass&&!$("app").hidden)load(false)},30000);
 })();
