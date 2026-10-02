@@ -180,7 +180,7 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
   /* ---------- ログイン ---------- */
   function showLogin(err){$("app").hidden=true;$("login").hidden=false;$("inName").value=ME.name;$("inPass").value="";
     $("passField").hidden=!!ME.pass;$("loginErr").textContent=err||"";$("loginErr").hidden=!err;(ME.name&&!ME.pass?$("inPass"):$("inName")).focus()}
-  function showApp(){$("login").hidden=true;$("app").hidden=false;$("whoami").textContent=ME.name+"（"+(ME.role||"立場未登録")+"）でログイン中"}
+  function showApp(){$("login").hidden=true;$("app").hidden=false;$("whoami").textContent=ME.name+" でログイン中"}
   $("logout").addEventListener("click",function(){ME.name="";lsDel("myName");showLogin()});
   function login(){return call("login").then(function(dt){ME.name=dt.me.name;ME.role=dt.me.role;lsSet("myName",ME.name);lsSet("pass",ME.pass);showApp();apply(dt.board)})}
   $("loginForm").addEventListener("submit",function(ev){ev.preventDefault();
@@ -258,7 +258,7 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
       item.appendChild(el("div",{cls:"ph"},[
         el("span",{cls:"no",text:(idx+1)+"."}),
         el("span",{cls:"who",text:p.name||"（名前なし）"}),
-        el("span",{cls:"role role-"+(ROLE_CLS[p.role]||""),text:"（"+(p.role||"")+"）"}),
+        
         el("span",{cls:"time",text:p.pending?"送信中…":(fmt(p.createdAt)+(p.editedAt?"（編集済）":""))}),acts]));
       if(state.editing==="post:"+p.id){
         var et=el("textarea",{maxlength:"2000",style:"min-height:120px"});et.value=p.body||"";item.appendChild(et);
@@ -279,7 +279,7 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
     var btn=el("button",{cls:"primary",type:"submit",text:"書き込む"});
     var form=el("form",{cls:"composer"},[
       el("label",{cls:"label",for:"pBody",text:amendMode?"意見欄（決定事項の修正の意図）":"意見欄"}),
-      el("p",{cls:"hint",text:"投稿者："+ME.name+"（"+(ME.role||"")+"）"}),
+      el("p",{cls:"hint",text:"投稿者："+ME.name}),
       body,el("div",{cls:"row"},[el("span",{cls:"hint",text:"書き込んだ意見は、議論中の間は自分で編集・削除できます。"}),btn])]);
     form.addEventListener("submit",function(ev){ev.preventDefault();var v=body.value.trim();if(!v)return;
       btn.disabled=true;
