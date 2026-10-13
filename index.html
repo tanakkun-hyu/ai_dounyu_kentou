@@ -103,6 +103,17 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
 .closed{background:var(--st-done-bg);color:var(--ink);border-radius:8px;padding:14px 16px;font-size:14px}
 .edit-row{display:flex;gap:8px;flex-wrap:wrap}
 .placeholder{color:var(--muted);text-align:center;padding:40px 10px}
+/* 論点名は、意見をスクロールしても上に残す */
+.d-title{position:sticky;top:-24px;z-index:2;background:var(--panel);margin:-8px 0;padding:8px 0;border-bottom:1px solid transparent}
+.d-title.stuck{border-bottom-color:var(--line)}
+/* PC・タブレット横向き：左の論点一覧と右の論議欄を別々にスクロール */
+@media (min-width:821px){
+  #app.wrap{height:100vh;height:100dvh;padding-bottom:16px}
+  #app .grid{flex:1;min-height:0;align-items:stretch}
+  #app aside.list{min-height:0;overflow-y:auto;padding-right:6px;overscroll-behavior:contain}
+  #app main.detail{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+}
+@media (max-width:820px){.d-title{top:0}}
 </style>
 </head>
 <body>
@@ -233,7 +244,7 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
         el("button",{cls:"link danger",type:"button",text:"この論点を削除",onclick:function(){var b=this;if(b.dataset.c!=="1"){b.dataset.c="1";b.textContent="本当に削除する（意見も消えます）";return}
           b.disabled=true;call("deleteIssue",i.id).then(function(dt){state.sel=null;state.editing=null;apply(dt)},fail)}})]));
     }else{
-      head.appendChild(el("div",{cls:"d-title"},[el("h2",{text:i.title||"（無題）"}),el("button",{cls:"link",type:"button",text:"論点を編集",onclick:function(){state.editing="issue";render(true)}})]));
+      d.appendChild(el("div",{cls:"d-title"},[el("h2",{text:i.title||"（無題）"}),el("button",{cls:"link",type:"button",text:"論点を編集",onclick:function(){state.editing="issue";render(true)}})]));
       if(i.goal)head.appendChild(el("div",{cls:"goal"},[el("span",{cls:"label",text:"この論点で決めたいこと"}),el("p",{text:i.goal})]));
     }
     var sr=el("div",{cls:"status-row"},[el("span",{cls:"label",text:"状態"})]);
@@ -317,8 +328,17 @@ main.detail{background:var(--panel);border:1px solid var(--line);border-radius:1
     if(!state.sel&&state.issues.length)state.sel=sortedIssues()[0].id;
     renderList();
     if(!force&&busy())return; // 入力中は右側を描き直さない
-    var y=window.scrollY;renderDetail();window.scrollTo(0,y);
+    var det=$("detail"),same=(render.lastSel===state.sel),y=window.scrollY,dy=det.scrollTop;
+    renderDetail();
+    if(same){window.scrollTo(0,y);det.scrollTop=dy}else{det.scrollTop=0;render.lastSel=state.sel}
+    watchStick();
   }
+
+  // 論点名が上に張り付いたら区切り線を出す
+  function watchStick(){var det=$("detail"),t=det.querySelector(".d-title");if(!t)return;
+    var wide=window.matchMedia("(min-width:821px)").matches;
+    t.classList.toggle("stuck",wide?det.scrollTop>16:t.getBoundingClientRect().top<=1)}
+  $("detail").addEventListener("scroll",watchStick);window.addEventListener("scroll",watchStick);
 
   function load(force){return call("getData").then(function(dt){state.issues=dt.issues||[];state.posts=state.posts.filter(function(p){return p.pending}).concat(dt.posts||[]);render(force)},fail)}
   $("reload").addEventListener("click",function(){load(true)});
